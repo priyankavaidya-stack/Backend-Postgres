@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { Client, Pool } = require("pg"); //
+const { Pool } = require("pg"); //
 const data = require('./data');
 
 // Load env variables
@@ -73,15 +73,27 @@ app.post('/api/insert-data', async(req, res)=>{
 });
 
 // API to check database connection
-app.get('/api', async (req, res)=>{
+// app.get('/api', async (req, res)=>{
+//     try {
+//         const result = await pool.query('SELECT NOW()');
+//         res.json(result.rows);
+//     } catch (error) {
+//         console.error('Error querying PostgreSQL:', error);
+//         res.status(500).json({ error: 'Failed to query PostgreSQL' });
+//     }
+// });
+
+// API for fetching the products from database
+app.get('/api/products', async (req, res)=>{
     try {
-        const result = await pool.query('SELECT NOW()');
-        res.json(result.rows);
+        const data = await pool.query('SELECT * FROM products');
+        // console.log(data.rows);
+        res.status(200).json({ message: 'Data fetched successfully!' });
     } catch (error) {
-        console.error('Error querying PostgreSQL:', error);
-        res.status(500).json({ error: 'Failed to query PostgreSQL' });
+        console.log('Error getting the list of products');
+        res.status(500).json({ error: 'Failed to fetch the data from PostgreSQL' });
     }
-});
+})
 
 // Start server
 app.listen(port, ()=>{
