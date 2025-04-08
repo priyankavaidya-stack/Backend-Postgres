@@ -37,7 +37,7 @@ app.use(express.json());
 const insertData = async () => {
     try {
         // Insert multiple rows using a single query
-        const queryText = `INSERT INTO products (product_name, product_img, description, price, ratings, isadded, isfavourite) VALUES ($1, $2, $3, $4, $5, $6, $7)`;
+        const queryText = `INSERT INTO products (product_name, product_img, description, price, ratings) VALUES ($1, $2, $3, $4, $5)`;
 
         // Loop through each product in the data array and insert it into the database
         for(let product of data) {
@@ -46,9 +46,7 @@ const insertData = async () => {
                 product.product_img,
                 product.description,
                 product.price,
-                product.ratings,
-                product.isAdded,
-                product.isFavourite
+                product.ratings
             ];
 
             // Insert data for each product
@@ -86,14 +84,45 @@ app.post('/api/insert-data', async(req, res)=>{
 // API for fetching the products from database
 app.get('/api/products', async (req, res)=>{
     try {
-        const data = await pool.query('SELECT * FROM products');
-        // console.log(data.rows);
-        res.status(200).json({ message: 'Data fetched successfully!' });
+        const result = await pool.query('SELECT * FROM products');
+        const data = result.rows;
+        // console.log(data);
+        res.status(200).json(data);
     } catch (error) {
-        console.log('Error getting the list of products');
+        console.log('Error getting the list of products:', error);
         res.status(500).json({ error: 'Failed to fetch the data from PostgreSQL' });
     }
 })
+
+// CART API Endpoints to handle cart operations
+app.post('/api/cart/add', async (req, res) => {
+    try {
+        const { product_id, session_id} = req.body;
+        // Fetch product details from the database
+        const productQuery = 'SELECT * FROM products WHERE product_id = $1';
+        const productResult = await pool.query(productQuery, [product_id]);
+
+        if(productResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+        const product = productResult.rows[0];
+
+        // Insert into cart table
+        const cartInsertQuery = 'INSERT INTO cart_items (product_id, session_id) VALUES ($1, $2)';
+        await pool.query(cartInsertQuery, [product_id, session_id]);
+    
+        // Fetch updated cart items
+        const cartQuery = 'SELECT * FROM cart_items WHERE session_id = $1';
+        const cartResults = await pool.query(cartQuery, [session_id]);
+
+        res.json(cartResults.rows);
+    } catch (error) {
+        console.error('Error adding to cart:', error);
+        res.status(500).json({ error: 'Failed to add to cart' });
+    }
+});
+
+
 
 // Start server
 app.listen(port, ()=>{
