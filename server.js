@@ -122,7 +122,24 @@ app.post('/api/cart/add', async (req, res) => {
     }
 });
 
+// API to fetch cart items
+app.get('/api/cart/:sessionId', async (req, res) => {
+    try{
+        const { sessionId } = req.params;
+        const cartQuery = `
+            SELECT ci.*, p.* 
+            FROM cart_items ci 
+            JOIN products p ON ci.product_id = p.product_id 
+            WHERE ci.session_id = $1
+        `;
 
+        const result = await pool.query(cartQuery, [sessionId]);
+        res.json(result.rows);
+    } catch(error) {
+        console.error('Error fetching cart items:', error);
+        res.status(500).json({ error: 'Failed to fetch cart items' });
+    }
+})
 
 // Start server
 app.listen(port, ()=>{
