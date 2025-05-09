@@ -105,11 +105,11 @@ app.post('/api/cart/add', async (req, res) => {
         if(productResult.rows.length === 0) {
             return res.status(404).json({ error: 'Product not found' });
         }
-        const product = productResult.rows[0];
+        // const product = productResult.rows[0];
 
         // Insert into cart table
-        const cartInsertQuery = 'INSERT INTO cart_items (product_id, session_id) VALUES ($1, $2)';
-        await pool.query(cartInsertQuery, [product_id, session_id]);
+        const cartInsertQuery = 'INSERT INTO cart_items (product_id, session_id, quantity) VALUES ($1, $2, $3)';
+        await pool.query(cartInsertQuery, [product_id, session_id, 1]);
     
         // Fetch updated cart items
         const cartQuery = 'SELECT * FROM cart_items WHERE session_id = $1';
@@ -122,9 +122,123 @@ app.post('/api/cart/add', async (req, res) => {
     }
 });
 
+// API to fetch cart items
+app.get('/api/cart/:sessionId', async (req, res) => {
+    try{
+        const { sessionId } = req.params;
+        const cartQuery = `
+            SELECT ci.*, p.* 
+            FROM cart_items ci 
+            JOIN products p ON ci.product_id = p.product_id 
+            WHERE ci.session_id = $1
+        `;
 
+        const result = await pool.query(cartQuery, [sessionId]);
+        res.json(result.rows);
+    } catch(error) {
+        console.error('Error fetching cart items:', error);
+        res.status(500).json({ error: 'Failed to fetch cart items' });
+    }
+})
+
+// API to remove product from cart
+app.post('/api/cart/remove/:itemId', async (req, res) => {
+    try {
+        const { itemId } = req.params;
+        const deleteQuery = `DELETE FROM cart_items WHERE product_id = $1 RETURNING *`;
+        const deleteResult = await pool.query(deleteQuery, [itemId]);
+
+        if(deleteResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Item not found in cart '});
+        }
+
+        const sessionId = deleteResult.rows[0].session_id;
+
+        // Then, fetch the updated cart (optional, for frontend sync)
+        const updatedCartQuery = `
+            SELECT ci.*, p.product_name, p.product_img, p.description, p.price
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.product_id
+            WHERE ci.session_id = $1
+        `;
+        const updatedCart = await pool.query(updatedCartQuery, [sessionId]);
+
+        res.status(200).json(updatedCart.rows);
+
+    } catch (error) {
+        console.error('Error removing the item from cart', error);
+        res.status(500).json({ error: 'Failed to remove item from cart' });
+    }
+});
+
+app.post('/api/cart/incrementQty/:itemId', async (req, res) => {
+    try {
+        const { itemId } = req.params;
+        // Step 1: Check if item exists in cart_items
+        const checkQuery = `SELECT * FROM cart_items WHERE product_id = $1`;
+        const checkResult = await pool.query(checkQuery, [itemId]);
+
+        console.log(checkQuery, "CheckQuery")
+        if(checkResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Item not found in cart '});
+        }
+
+        // Step 2: Increment quantity
+        const updateQuery = `UPDATE cart_items SET quantity = quantity + 1 WHERE product_id = $1 RETURNING *`;
+        const updateResult = await pool.query(updateQuery, [itemId]);
+
+        // Step 3: Fetch updated cart for that session
+        const sessionId = updateResult.rows[0].session_id;
+        const cartQuery = `
+            SELECT ci.*, p.product_name, p.product_img, p.description, p.price
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.product_id
+            WHERE ci.session_id = $1
+        `;
+        const updatedCart = await pool.query(cartQuery, [sessionId]);
+
+        res.status(200).json(updatedCart.rows);
+
+    } catch (error) {
+        console.error('Error increasing the qty of product in cart', error);
+        res.status(500).json({ error: 'Failed to increase the qty in cart' });
+    }
+})
+
+app.post('/api/cart/decrementQty/:itemId', async (req, res) => {
+    try {
+        const { itemId } = req.params;
+        // Step 1: Check if item exists in cart_items
+        const checkQuery = `SELECT * FROM cart_items WHERE product_id = $1`;
+        const checkResult = await pool.query(checkQuery, [itemId]);
+
+        if(checkResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Item not found in cart '});
+        }
+
+        // Step 2: Increment quantity
+        const updateQuery = `UPDATE cart_items SET quantity = quantity - 1 WHERE product_id = $1 RETURNING *`;
+        const updateResult = await pool.query(updateQuery, [itemId]);
+
+        // Step 3: Fetch updated cart for that session
+        const sessionId = updateResult.rows[0].session_id;
+        const cartQuery = `
+            SELECT ci.*, p.product_name, p.product_img, p.description, p.price
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.product_id
+            WHERE ci.session_id = $1
+        `;
+        const updatedCart = await pool.query(cartQuery, [sessionId]);
+        console.log("Updated Cart", updatedCart);
+        res.status(200).json(updatedCart.rows);
+
+    } catch (error) {
+        console.error('Error decreasing the qty of product in cart', error);
+        res.status(500).json({ error: 'Failed to decrease the qty in cart' });
+    }
+})
 
 // Start server
 app.listen(port, ()=>{
     console.log(`Server is listening on port ${port}`);
-})
+});
