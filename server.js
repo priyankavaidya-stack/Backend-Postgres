@@ -105,7 +105,6 @@ app.post('/api/cart/add', async (req, res) => {
         if(productResult.rows.length === 0) {
             return res.status(404).json({ error: 'Product not found' });
         }
-        // const product = productResult.rows[0];
 
         // Insert into cart table
         const cartInsertQuery = 'INSERT INTO cart_items (product_id, session_id, quantity) VALUES ($1, $2, $3)';
