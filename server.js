@@ -238,6 +238,57 @@ app.post('/api/cart/decrementQty/:itemId', async (req, res) => {
     }
 })
 
+app.post('/api/wishlist/toggle', async (req, res) => {
+    try {
+        const { product_id, session_id} = req.body;
+        // Fetch product details from the database
+        const checkQuery = `SELECT * FROM wishlist_items WHERE product_id = $1 AND session_id = $2`;
+        const result = await pool.query(checkQuery, [product_id, session_id]);
+
+        if(result.rows.length > 0) {
+            // Product exists in wishlist — remove it
+            const removeQuery = `DELETE FROM wishlist_items WHERE product_id = $1 AND session_id = $2`;
+            await pool.query(removeQuery, [product_id, session_id])
+        } else {
+            // Product not in wishlist — add it
+            const addQuery = `INSERT INTO wishlist_items (product_id, session_id) VALUES ($1, $2)`;
+            await pool.query(addQuery, [product_id, session_id])
+        }
+
+        // Return updated wishlist
+        const updatedList = await pool.query(`
+            SELECT w.*, p.product_name, p.price, p.product_img
+            FROM wishlist_items w
+            JOIN products p ON w.product_id = p.product_id
+            WHERE w.session_id = $1
+        `, [session_id]);
+
+        res.json(updatedList.rows);
+    } catch (error) {
+        console.error('Error adding item to the wishlist', error);
+    }
+})
+
+// API to fetch cart items
+app.get('/api/wishlist/:sessionId', async (req, res) => {
+    try{
+        const { sessionId } = req.params;
+        const listQuery = `
+            SELECT wi.*, p.* 
+            FROM wishlist_items wi 
+            JOIN products p ON wi.product_id = p.product_id 
+            WHERE wi.session_id = $1
+        `;
+
+        const result = await pool.query(listQuery, [sessionId]);
+        console.log("result", result);
+        res.json(result.rows);
+    } catch(error) {
+        console.error('Error fetching wishlist items:', error);
+        res.status(500).json({ error: 'Failed to fetch wishlist items' });
+    }
+})
+
 // Start server
 app.listen(port, ()=>{
     console.log(`Server is listening on port ${port}`);
