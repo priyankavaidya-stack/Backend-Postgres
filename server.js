@@ -280,11 +280,25 @@ app.get('/api/wishlist/:sessionId', async (req, res) => {
         `;
 
         const result = await pool.query(listQuery, [sessionId]);
-        console.log("result", result);
         res.json(result.rows);
     } catch(error) {
         console.error('Error fetching wishlist items:', error);
         res.status(500).json({ error: 'Failed to fetch wishlist items' });
+    }
+})
+
+app.delete('/api/cart/clear/:sessionId', async (req, res) => {
+    try{
+        const { sessionId } = req.params;
+        const cartQuery = `
+            DELETE FROM cart_items WHERE session_id = $1
+        `;
+
+        const result = await pool.query(cartQuery, [sessionId]);
+        res.json(result.rows);
+    } catch(error) {
+        console.error('Error fetching cart items:', error);
+        res.status(500).json({ error: 'Failed to fetch cart items' });
     }
 })
 
