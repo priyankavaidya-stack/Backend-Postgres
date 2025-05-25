@@ -21,6 +21,9 @@ app.use(express.json()); // to access req.body
 // register and login routes
 app.use("/auth", require("./routes/jwtAuth"));
 
+// dashboard route
+app.use("/dashboard", require("./routes/dashboard"));
+
 // Function to insert data into the database
 const insertData = async () => {
     try {
